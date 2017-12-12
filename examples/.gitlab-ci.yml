@@ -1,0 +1,60 @@
+stages:
+  - build
+  - test
+
+# Variables
+variables:
+  MYSQL_ROOT_PASSWORD: root
+  MYSQL_USER: homestead
+  MYSQL_PASSWORD: secret
+  MYSQL_DATABASE: homestead
+  DB_HOST: mysql
+  DB_CONNECTION: mysql
+
+build:
+  stage: build
+  services:
+     - mysql:5.7
+
+  image: chilio/laravel-dusk-ci:stable
+  script:
+    - composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+    # - npm install # if you need to install additional modules from your projects package.json
+    # - npm run dev # if you need to run dev scripts for example laravel mix 
+  cache:
+      key: ${CI_BUILD_REF_NAME}
+      paths:
+        - vendor
+        - node_modules
+        - public
+        - resources
+
+
+test:
+  stage: test
+  cache:
+    key: ${CI_BUILD_REF_NAME}
+    paths:
+      - vendor
+      - node_modules
+
+  services:
+    - mysql:5.7
+
+  image: chilio/laravel-dusk-ci:stable
+  script:
+    - cp .env.example .env
+    # - cp phpunit.xml.ci phpunit.xml # if you are using custom config for your phpunit tests in CI
+    - configure-laravel
+    - start-nginx-ci-project
+    - ./vendor/phpunit/phpunit/phpunit -v --coverage-text --colors --stderr
+    # - phpunit -v --coverage-text --colors --stderr # if you want to use preinstalled phpunit
+    - php artisan dusk --colors --debug
+
+  artifacts:
+    paths:
+      - ./storage/logs # for debugging
+      - ./tests/Browser/screenshots
+      - ./tests/Browser/console
+    expire_in: 7 days
+    when: always
